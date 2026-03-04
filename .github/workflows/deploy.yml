@@ -1,0 +1,70 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write   # required for OIDC
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECR_URL: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com/hello-world-flink
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build JAR
+        run: mvn package -f flink-app/pom.xml -DskipTests
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.GHA_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_URL:$IMAGE_TAG -t $ECR_URL:latest .
+          docker push $ECR_URL:$IMAGE_TAG
+          docker push $ECR_URL:latest
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name flink-poc \
+            --region $AWS_REGION
+
+      - name: Deploy to EKS
+        env:
+          ECR_IMAGE: ${{ env.ECR_URL }}:${{ github.sha }}
+        run: |
+          envsubst < k8s/flink-deployment.yaml > /tmp/flink-deployment.yaml
+          kubectl apply -f k8s/namespace.yaml
+          kubectl apply -f k8s/service-account.yaml
+          kubectl apply -f /tmp/flink-deployment.yaml
+
+      - name: Wait for Flink job to start
+        run: |
+          kubectl rollout status deployment/hello-world -n flink --timeout=120s || true
+          kubectl get pods -n flink

@@ -1,0 +1,20 @@
+# Terraform
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/*.tfvars
+
+# Claude settings
+.claude/
+
+# AWS CLI installer
+awscliv2.zip
+aws/
+
+# Java build output
+flink-app/target/
+
+# IDE
+.idea/
+*.iml

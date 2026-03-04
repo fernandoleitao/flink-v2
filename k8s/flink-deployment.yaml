@@ -1,0 +1,24 @@
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkDeployment
+metadata:
+  name: hello-world
+  namespace: flink
+spec:
+  image: ${ECR_IMAGE}
+  imagePullPolicy: IfNotPresent
+  flinkVersion: v2_0
+  flinkConfiguration:
+    taskmanager.numberOfTaskSlots: "1"
+  serviceAccount: flink
+  jobManager:
+    resource:
+      memory: "1024m"
+      cpu: 1
+  taskManager:
+    resource:
+      memory: "1024m"
+      cpu: 1
+  job:
+    jarURI: local:///opt/flink/usrlib/hello-world.jar
+    parallelism: 1
+    upgradeMode: stateless
