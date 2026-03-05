@@ -51,32 +51,3 @@ resource "aws_eks_addon" "ebs_csi" {
 
   depends_on = [module.eks]
 }
-
-# cert-manager
-resource "helm_release" "cert_manager" {
-  name             = "cert-manager"
-  repository       = "https://charts.jetstack.io"
-  chart            = "cert-manager"
-  version          = "v1.16.2"
-  namespace        = "cert-manager"
-  create_namespace = true
-
-  set {
-    name  = "installCRDs"
-    value = "true"
-  }
-
-  depends_on = [module.eks]
-}
-
-# Flink Kubernetes Operator
-resource "helm_release" "flink_operator" {
-  name             = "flink-kubernetes-operator"
-  repository       = "https://archive.apache.org/dist/flink/flink-kubernetes-operator-1.11.0/"
-  chart            = "flink-kubernetes-operator"
-  version          = "1.11.0"
-  namespace        = "flink-kubernetes-operator"
-  create_namespace = true
-
-  depends_on = [helm_release.cert_manager]
-}
